@@ -4,7 +4,22 @@ var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 
 //DB setup
-mongoose.connect('mongodb://mongo:27017');
+mongoose.connect('mongodb://mongo:27017/polls');
+
+//Get the default connection
+var db = mongoose.connection;
+
+//Bind connection to error event (to get notification of connection errors)
+db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+
+// Define schema
+//const pollSchema = mongoose.Schema({
+//  question: String,
+//  answer: Array,
+//  votes:Array
+//});
+
+//var poll = mongoose.model('Poll',pollSchema);
 
 //Body-parser to encode url
 app.use(bodyParser.urlencoded({
@@ -16,13 +31,13 @@ app.use(bodyParser.json());
 const polls = [{
         id: 8,
         question: "votre couleur préférée ?",
-        responses: ["bleu", "blanc", "rouge", "vert"],
+        answers: ["bleu", "blanc", "rouge", "vert"],
         votes: []
     },
     {
         id: 2,
         question: "Quelle est la capitale de la France ?",
-        responses: ["Paris", "Moscou", "Berlin", "Bucarest", "Bangui"],
+        answers: ["Paris", "Moscou", "Berlin", "Bucarest", "Bangui"],
         votes: [1, 0, 0, 0, 2, 2, 2]
     }
 ];
@@ -63,10 +78,10 @@ app.post('/polls/:id/votes', function(req, res) {
     const poll = polls.find(poll => poll.id == req.params.id);
 
     if (typeof(poll) !== 'undefined') {
-        //index de la responses
+        //index de la answers
         const answer = parseInt(req.body.answer);
 
-        if (answer > 0 && answer < poll.responses.length) {
+        if (answer >= 0 && answer < poll.answers.length) {
             poll.votes.push(answer);
             //res.send("got a post"+req.params.id+'-'+poll.votes);
             res.status(201).send(JSON.stringify(poll));
@@ -85,15 +100,23 @@ app.post('/polls/:id/votes', function(req, res) {
 
 app.post('/polls', function(req, res) {
 
+    const question = req.body.question;
+    const answer = req.body.answer;
 
-    if (((typeof(req.body.question) || (req.body.answer) )!== 'undefined') && (Array.isArray(req.body.answer))) {
-      const newPoll = req.body;
+    if (((typeof(question) || (answer) )!== 'undefined') && ((Array.isArray(answer))) && ((answer).every(a=>typeof(a)==='string'))) {
+      //max id avec reduce
+      const id = (polls.reduce((a,b) => a > b.id ? a : b.id)) + 1;
+      const newPoll = {
+        id,
+        question,
+        answer,
+        votes : []
+      };
     } else {
       res.status(400).send('pas de question ou pas de réponse');
     }
-    
-    //max id avec reduce
-    newPoll.id = (polls.reduce((a,b) => a > b.id ? a : b.id)) + 1;
+
+
     polls.push(newPoll);
 
     res.status(201).send(JSON.stringify(newPoll));

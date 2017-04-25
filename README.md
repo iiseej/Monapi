@@ -48,6 +48,10 @@ Paramètres :
 - answer: Index de la réponse (number)
 
 Réponse en cas de succès : `201 Created`
+Liste des votes en JSON
+```
+[0,1,2,0,2]
+```
 
 Erreurs :
 - `400 Bad Request` : Paramètres incorrects
