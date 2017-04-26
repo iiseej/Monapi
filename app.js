@@ -4,7 +4,7 @@ var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 
 //DB setup
-mongoose.connect('mongodb://mongo:27017/polls');
+mongoose.connect('mongodb://mongo:27017/ApiPolls');
 
 //Get the default connection
 var db = mongoose.connection;
@@ -12,14 +12,15 @@ var db = mongoose.connection;
 //Bind connection to error event (to get notification of connection errors)
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
 
-// Define schema
-//const pollSchema = mongoose.Schema({
-//  question: String,
-//  answer: Array,
-//  votes:Array
-//});
+//Define schema
+const ApiPollSchema = mongoose.Schema({
+    question: String,
+    answer: Array,
+    votes: Array
+});
 
-//var poll = mongoose.model('Poll',pollSchema);
+var ApiPoll = mongoose.model('ApiPoll', ApiPollSchema);
+var ObjectId = require('mongodb').ObjectID;
 
 //Body-parser to encode url
 app.use(bodyParser.urlencoded({
@@ -28,22 +29,7 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 
 
-const polls = [{
-        id: 8,
-        question: "votre couleur préférée ?",
-        answers: ["bleu", "blanc", "rouge", "vert"],
-        votes: []
-    },
-    {
-        id: 2,
-        question: "Quelle est la capitale de la France ?",
-        answers: ["Paris", "Moscou", "Berlin", "Bucarest", "Bangui"],
-        votes: [1, 0, 0, 0, 2, 2, 2]
-    }
-];
-
-
-
+//const polls = db.collection('poll').find();
 
 app.get('/', function(req, res) {
     res.status(200).send("Hello World");
@@ -52,22 +38,40 @@ app.get('/', function(req, res) {
 // Lister les sondages
 
 app.get('/polls', function(req, res) {
-    res.status(200).send(JSON.stringify(polls));
+
+   db.collection('ApiPoll').find({}).toArray((err, polls) => {
+    if (!err) {
+      res.send(polls);
+    }
+  });
+    //res.send(db.collection('ApiPoll').find());
+    //res.status(200).send(JSON.stringify(polls));
 });
 
 // Lister un sondage selon son id
 
-
 app.get('/polls/:id', function(req, res) {
 
-    const poll = polls.find(poll => poll.id == req.params.id);
+  db.collection('ApiPoll').find(
+    { _id : ObjectId(req.params.id)})
+    .toArray((err, poll) => {
+   if (!err) {
+     res.send(poll);
+   }
+  });
 
-    if (typeof(poll) !== 'undefined') {
-        res.status(200).send(JSON.stringify(poll));
-    } else {
-        res.status(404).send("Poll does not exist");
-    }
+});
 
+app.delete('/polls/:id', function (req,res) {
+  db.collection('ApiPoll').findOne({
+      _id: ObjectId(req.params.id)
+  }, (err, poll) => {
+
+          db.collection('ApiPoll').remove(
+            {_id : ObjectId(req.params.id)}
+          );
+          res.status(200).send("poll deleted with GREAT succes !");
+});
 });
 
 
@@ -75,16 +79,26 @@ app.get('/polls/:id', function(req, res) {
 
 app.post('/polls/:id/votes', function(req, res) {
 
-    const poll = polls.find(poll => poll.id == req.params.id);
+    //const poll = polls.find(poll => poll.id == req.params.id);
+
+
+
+    db.collection('ApiPoll').findOne({
+        _id: ObjectId(req.params.id)
+    }, (err, poll) => {
 
     if (typeof(poll) !== 'undefined') {
         //index de la answers
-        const answer = parseInt(req.body.answer);
+        const number = parseInt(req.body.answer);
 
-        if (answer >= 0 && answer < poll.answers.length) {
-            poll.votes.push(answer);
+        if (number >= 0 && number < poll.answer.length) {
+            db.collection('ApiPoll').update(
+              {_id : ObjectId(req.params.id)},
+              { $push : {votes : number}}
+            );
+            //poll.votes.push(number);
             //res.send("got a post"+req.params.id+'-'+poll.votes);
-            res.status(201).send(JSON.stringify(poll));
+            res.status(201).send("vote added");
         } else {
             res.status(404).send("answer does not exist");
         }
@@ -92,32 +106,37 @@ app.post('/polls/:id/votes', function(req, res) {
     } else {
         res.status(404).send("Poll does not exist");
     }
-
+});
 });
 
 
-// Créer un sondfage
+// Créer un sondage
 
 app.post('/polls', function(req, res) {
 
     const question = req.body.question;
     const answer = req.body.answer;
 
-    if (((typeof(question) || (answer) )!== 'undefined') && ((Array.isArray(answer))) && ((answer).every(a=>typeof(a)==='string'))) {
-      //max id avec reduce
-      const id = (polls.reduce((a,b) => a > b.id ? a : b.id)) + 1;
-      const newPoll = {
-        id,
-        question,
-        answer,
-        votes : []
-      };
+
+    if (((typeof(question) || (answer)) !== 'undefined') && ((Array.isArray(answer))) && ((answer).every(a => typeof(a) === 'string'))) {
+        //max id avec reduce
+
+        //const id = (polls.reduce((a,b) => a > b.id ? a : b.id,0)) + 1;
+
+        const newPoll = {
+            //id,
+            question,
+            answer,
+            votes: []
+        };
     } else {
-      res.status(400).send('pas de question ou pas de réponse');
+        res.status(400).send('pas de question ou pas de réponse');
     }
 
 
-    polls.push(newPoll);
+    //polls.push(newPoll);
+
+    db.collection('ApiPoll').insert(newPoll);
 
     res.status(201).send(JSON.stringify(newPoll));
 });
